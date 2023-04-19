@@ -1,0 +1,11 @@
+spring:
+  application:
+    name: telnet-client
+
+server:
+  port: 8090
+
+kafka:
+  bootstrapAddress: localhost:9092
+topic:
+  name: test-topic

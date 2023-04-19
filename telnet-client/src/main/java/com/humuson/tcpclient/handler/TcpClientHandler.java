@@ -1,4 +1,4 @@
-package com.humuson.tcpclient;
+package com.humuson.tcpclient.handler;
 
 import io.netty.channel.ChannelHandler.Sharable;
 import io.netty.channel.ChannelHandlerContext;
@@ -8,7 +8,7 @@ import io.netty.channel.SimpleChannelInboundHandler;
 public class TcpClientHandler extends SimpleChannelInboundHandler<String> {
 
     @Override
-    protected void messageReceived(ChannelHandlerContext ctx, String msg) {
+    protected void channelRead0(ChannelHandlerContext ctx, String msg) {
         System.err.println(msg);
     }
 

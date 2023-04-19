@@ -19,6 +19,7 @@ public class TcpServerApplication {
 
         EventLoopGroup bossGroup = new NioEventLoopGroup(1);
         EventLoopGroup workerGroup = new NioEventLoopGroup();
+
         try {
             ServerBootstrap b = new ServerBootstrap();
             b.group(bossGroup, workerGroup)
@@ -27,6 +28,7 @@ public class TcpServerApplication {
                     .childHandler(new TcpServerInitializer(sslCtx));
 
             b.bind(PORT).sync().channel().closeFuture().sync();
+
         } finally {
             bossGroup.shutdownGracefully();
             workerGroup.shutdownGracefully();

@@ -1,5 +1,7 @@
 package com.humuson.tcpclient;
 
+import com.humuson.tcpclient.handler.TcpClientHandler;
+import com.humuson.tcpclient.subscriber.TestSubscriber;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.socket.SocketChannel;
@@ -27,7 +29,7 @@ public class TcpClientInitializer extends ChannelInitializer<SocketChannel> {
         ChannelPipeline pipeline = ch.pipeline();
 
         if (sslCtx != null) {
-            pipeline.addLast(sslCtx.newHandler(ch.alloc(), TcpClientApplication.HOST, TcpClientApplication.PORT));
+            pipeline.addLast(sslCtx.newHandler(ch.alloc(), TestSubscriber.HOST, TestSubscriber.PORT));
         }
 
         pipeline.addLast(new DelimiterBasedFrameDecoder(8192, Delimiters.lineDelimiter()));

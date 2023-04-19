@@ -8,6 +8,12 @@ group = 'com.humuson'
 version = '0.0.1-SNAPSHOT'
 sourceCompatibility = '1.8'
 
+configurations {
+	compileOnly {
+		extendsFrom annotationProcessor
+	}
+}
+
 repositories {
 	mavenCentral()
 }
@@ -17,7 +23,15 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-webflux'
 
 	// Netty
-	implementation 'io.netty:netty-all:5.0.0.Alpha2'
+	implementation 'io.netty:netty-all'
+
+	// Kafka
+	implementation 'org.springframework.kafka:spring-kafka'
+
+	// Lombok
+	implementation 'org.projectlombok:lombok:1.18.26'
+	compileOnly 'org.projectlombok:lombok'
+	annotationProcessor 'org.projectlombok:lombok'
 
 	// Test
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
