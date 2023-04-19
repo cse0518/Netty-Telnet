@@ -9,7 +9,7 @@ public class TcpClientHandler extends SimpleChannelInboundHandler<String> {
 
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, String msg) {
-        System.err.println(msg);
+        System.out.println(msg);
     }
 
     @Override
