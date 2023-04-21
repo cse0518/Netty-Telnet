@@ -1,6 +1,7 @@
 ## Netty-Telnet Client
 
 - [Netty-Telnet] TCP client 설정 후 Kafka Consume 연결
+- Kafka 해당 토픽에서 consume 한 후, 소켓 통신을 통해 telnet server로 데이터 전송
 
 <br/>
 
@@ -9,6 +10,7 @@
 - [Dependency (Gradle)](#dependency-gradle)
 - [Property](#property)
 - [구현](#구현)
+  - [Application](#application)
   - [Initializer](#initializer)
   - [Kafka Configuration](#kafka-configuration)
   - [Subscriber](#subscriber)
@@ -60,6 +62,69 @@ topic:
 <br/>
 
 ## 구현
+
+### Application
+
+```java
+import com.humuson.tcpclient.util.ServerUtil;
+import io.netty.bootstrap.Bootstrap;
+import io.netty.channel.Channel;
+import io.netty.channel.EventLoopGroup;
+import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.channel.socket.nio.NioSocketChannel;
+import io.netty.handler.ssl.SslContext;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+import javax.net.ssl.SSLException;
+import java.security.cert.CertificateException;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
+
+@SpringBootApplication
+public class TcpClientApplication {
+
+    public static final boolean SSL = System.getProperty("ssl") != null;
+    public static final String HOST = System.getProperty("host", "127.0.0.1");
+    public static final int PORT = Integer.parseInt(System.getProperty("port", SSL ? "8992" : "8023"));
+
+    // Socket 통신으로 보낼 데이터 적재
+    public static final Queue<Object> stage = new ConcurrentLinkedQueue<>();
+
+    public static void main(String[] args) throws CertificateException, SSLException {
+        SslContext sslContext = ServerUtil.buildSslContext();
+
+        EventLoopGroup group = new NioEventLoopGroup();
+        try {
+            Bootstrap b = new Bootstrap();
+            b.group(group)
+                    .channel(NioSocketChannel.class)
+                    .handler(new TcpClientInitializer(sslContext));
+
+            Channel ch = b.connect(HOST, PORT).sync().channel();
+            // 무한 루프
+            while (true) {
+                // 보낼 데이터가 없으면 5초 대기
+                if (stage.isEmpty()) {
+                    Thread.sleep(5000);
+                    continue;
+                }
+
+                // 보낼 데이터가 있으면 꺼내서 전송
+                String data = stage.poll().toString();
+                ch.writeAndFlush(data + "\r\n");
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+
+        } finally {
+            group.shutdownGracefully();
+        }
+    }
+}
+```
+
+<br/>
 
 ### Initializer
 
@@ -122,17 +187,13 @@ public class KafkaConsumerConfig {
 
 ### Subscriber
 
-- 해당 토픽의 데이터를 consume 한 후에, 소켓 통신으로 Telnet Server로 전송
+- 해당 토픽의 데이터를 consume 한 후에, Queue(소켓 통신으로 보낼 데이터 저장소)에 적재
 
 ```java
-import com.humuson.tcpclient.TcpClientInitializer;
+package com.humuson.tcpclient.subscriber;
+
+import com.humuson.tcpclient.TcpClientApplication;
 import com.humuson.tcpclient.dto.TestDto;
-import com.humuson.tcpclient.util.ServerUtil;
-import io.netty.bootstrap.Bootstrap;
-import io.netty.channel.Channel;
-import io.netty.channel.ChannelFuture;
-import io.netty.channel.nio.NioEventLoopGroup;
-import io.netty.channel.socket.nio.NioSocketChannel;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
@@ -141,38 +202,13 @@ import org.springframework.stereotype.Component;
 @Component
 public class TestSubscriber {
 
-    public static final boolean SSL = System.getProperty("ssl") != null;
-    public static final String HOST = System.getProperty("host", "127.0.0.1");
-    public static final int PORT = Integer.parseInt(System.getProperty("port", SSL ? "8992" : "8023"));
-
-    @KafkaListener(topics = "${topic.name}", containerFactory = "testKafkaListenerContainerFactory")
-    public void testListener(TestDto testDTO) {
-        NioEventLoopGroup group = new NioEventLoopGroup();
-
-        try {
-            String line = testDTO.toString();
-            log.info(line);
-
-            Bootstrap b = new Bootstrap();
-            b.group(group)
-                    .channel(NioSocketChannel.class)
-                    .handler(new TcpClientInitializer(ServerUtil.buildSslContext()));
-
-            Channel ch = b.connect(HOST, PORT).sync().channel();
-
-            ChannelFuture lastWriteFuture = ch.writeAndFlush(line + "\r\n");
-
-            if (lastWriteFuture != null) {
-                lastWriteFuture.sync();
-            }
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            group.shutdownGracefully();
-        }
-    }
+  @KafkaListener(topics = "${topic.name}", containerFactory = "testKafkaListenerContainerFactory")
+  public void testListener(TestDto testDTO) {
+    log.info("consume data : " + testDTO.toString());
+    TcpClientApplication.stage.add(testDTO);
+  }
 }
+
 ```
 
 <br/>
