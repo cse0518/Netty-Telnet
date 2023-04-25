@@ -3,7 +3,7 @@ spring:
     name: telnet-client
 
 server:
-  port: 8090
+  port: 8091
 
 kafka:
   bootstrapAddress: localhost:9092
