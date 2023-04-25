@@ -6,6 +6,6 @@ server:
   port: 8091
 
 kafka:
-  bootstrapAddress: localhost:9092
+  bootstrapAddress: kafka:9092
 topic:
   name: test-topic
