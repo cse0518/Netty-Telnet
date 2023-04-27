@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class TestSubscriber {
 
-    @KafkaListener(topics = "${topic.name}", containerFactory = "testKafkaListenerContainerFactory")
+    @KafkaListener(topics = "${topic.name}", groupId = "test-group", containerFactory = "testKafkaListenerContainerFactory")
     public void testListener(TestDto testDTO) {
         log.info("consume data : " + testDTO.toString());
         TcpClientApplication.stage.add(testDTO);
