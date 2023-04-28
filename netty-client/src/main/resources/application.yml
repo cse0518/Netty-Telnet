@@ -1,3 +1,6 @@
+server:
+  port: 8091
+
 spring:
   application:
     name: netty-client
@@ -9,5 +12,6 @@ spring:
     topic:
       name: testTopic
 
-server:
-  port: 8091
+netty:
+  host: localhost # netty-server
+  port: 9000
