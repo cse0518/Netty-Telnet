@@ -29,13 +29,14 @@ dependencies {
 	implementation 'org.springframework.kafka:spring-kafka'
 
 	// Lombok
-	implementation 'org.projectlombok:lombok:1.18.26'
+	implementation 'org.projectlombok:lombok'
 	compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.projectlombok:lombok'
 
 	// Test
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testImplementation 'io.projectreactor:reactor-test'
+	testAnnotationProcessor 'org.projectlombok:lombok'
 }
 
 tasks.named('test') {
