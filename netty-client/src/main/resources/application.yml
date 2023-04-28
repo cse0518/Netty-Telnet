@@ -1,0 +1,13 @@
+spring:
+  application:
+    name: netty-client
+
+  kafka:
+    bootstrapAddress: kafka:9092 #kafka:9092
+    consumer:
+      group-id: testGroup
+    topic:
+      name: testTopic
+
+server:
+  port: 8091
