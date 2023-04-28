@@ -1,6 +1,6 @@
 package com.humuson.tcpclient.consumer;
 
-import com.humuson.tcpclient.NettyTcpClient;
+import io.netty.channel.ChannelFuture;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
@@ -9,9 +9,15 @@ import org.springframework.stereotype.Component;
 @Component
 public class Consumer {
 
-    @KafkaListener(topics = "${spring.kafka.topic.name}", containerFactory = "kafkaListenerContainerFactory")
+    private final ChannelFuture netty;
+
+    public Consumer(ChannelFuture netty) {
+        this.netty = netty;
+    }
+
+    @KafkaListener(topics = "${spring.kafka.topic.name}", containerFactory = "myKafkaListenerContainerFactory")
     public void consume(String message) {
         log.info("### consume data : {}", message);
-        NettyTcpClient.sendQueue.add(message);
+        netty.channel().writeAndFlush(message);
     }
 }

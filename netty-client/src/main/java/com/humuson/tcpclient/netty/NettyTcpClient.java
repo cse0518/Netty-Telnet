@@ -1,4 +1,4 @@
-package com.humuson.tcpclient;
+package com.humuson.tcpclient.netty;
 
 import com.humuson.tcpclient.handler.TcpClientHandler;
 import io.netty.bootstrap.Bootstrap;
@@ -11,25 +11,48 @@ import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.string.StringEncoder;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+import org.springframework.stereotype.Component;
 
+import javax.annotation.PreDestroy;
 import java.nio.charset.StandardCharsets;
-import java.util.Queue;
-import java.util.concurrent.ConcurrentLinkedQueue;
 
 @Slf4j
-@SpringBootApplication
+@Component
 public class NettyTcpClient {
 
-    public static String HOST = "localhost"; // netty-server
-    public static int PORT = 9000;
-    public static Queue<String> sendQueue = new ConcurrentLinkedQueue<>();
+    @Value(value = "${netty.host}")
+    public String HOST;
 
-    public static void main(String[] args) {
-        SpringApplication.run(Application.class, args);
+    @Value(value = "${netty.port}")
+    public int PORT;
 
-        EventLoopGroup group = new NioEventLoopGroup();
+    private final EventLoopGroup group;
+    private ChannelFuture cf;
+
+    public NettyTcpClient() {
+        log.info("NioEventLoopGroup 생성");
+        this.group = new NioEventLoopGroup();
+    }
+
+    @PreDestroy
+    public void shutdown() {
+        try {
+            log.info("closeFuture...");
+            cf.channel().closeFuture().sync();
+
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+            throw new RuntimeException(e);
+
+        } finally {
+            group.shutdownGracefully();
+        }
+    }
+
+    @Bean
+    public ChannelFuture netty() {
         try {
             Bootstrap b = new Bootstrap();
             b.group(group)
@@ -45,31 +68,13 @@ public class NettyTcpClient {
                         }
                     });
 
-            ChannelFuture cf = b.connect(HOST, PORT).sync();
+            cf = b.connect(HOST, PORT).sync();
             log.info("### TCP 연결 서버 - {}", cf.channel().remoteAddress());
-
-            while (true) {
-                if (sendQueue.isEmpty()) {
-                    Thread.sleep(5000);
-                    continue;
-                }
-
-                String message = sendQueue.poll();
-                if (message.equals("bye")) {
-                    cf.channel().writeAndFlush("### 접속을 종료합니다.");
-                    break;
-                }
-                cf.channel().writeAndFlush(message);
-            }
-
-            cf.channel().closeFuture().sync();
+            return cf;
 
         } catch (InterruptedException e) {
             e.printStackTrace();
             throw new RuntimeException(e);
-
-        } finally {
-            group.shutdownGracefully();
         }
     }
 }
