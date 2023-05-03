@@ -35,7 +35,7 @@ public class TcpServerHandler extends ChannelInboundHandlerAdapter {
             close = true;
 
         } else {
-            response = "## 서버에서 확인했습니다." + "\r\n";
+            response = "## 서버에서 확인했습니다.\r\n";
             log.info(message);
         }
 

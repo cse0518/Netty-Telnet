@@ -21,7 +21,7 @@ import java.net.InetSocketAddress;
 @Slf4j
 public class TcpServerApplication {
 
-    public static final String HOST = "localhost"; // netty-server
+    public static final String HOST = "netty-server";
     public static final int PORT = 9000;
 
     public static void main(String[] args) throws Exception {
