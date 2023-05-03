@@ -1,9 +1,12 @@
 package com.humuson.tcpclient.handler;
 
+import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandler.Sharable;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import lombok.extern.slf4j.Slf4j;
+
+import java.nio.charset.Charset;
 
 @Slf4j
 @Sharable
@@ -16,9 +19,9 @@ public class TcpClientHandler extends ChannelInboundHandlerAdapter {
 
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) {
-        String message = msg.toString();
+        String message = ((ByteBuf) msg).toString(Charset.defaultCharset());
         log.info("### 메세지를 수신했습니다 : {}", message);
-        ctx.close();
+        ctx.channel().writeAndFlush("### 서버 확인\r\n");
     }
 
     @Override

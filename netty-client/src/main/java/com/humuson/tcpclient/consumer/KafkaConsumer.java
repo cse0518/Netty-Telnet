@@ -39,10 +39,10 @@ public class KafkaConsumer {
     private void connect() throws InterruptedException {
         ChannelFuture channelFuture = bootstrap.connect(HOST, PORT).sync();
         if (channelFuture.isSuccess()) {
-            System.out.println("## Successfully connected to Netty server");
+            log.info("## Successfully connected to Netty server");
             channel = channelFuture.channel();
         } else {
-            System.out.println("## Failed to connect to Netty server");
+            log.info("## Failed to connect to Netty server");
             throw new InterruptedException();
         }
     }
