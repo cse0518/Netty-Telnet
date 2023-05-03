@@ -1,6 +1,6 @@
 ## Netty-Telnet Server
 
-- [Netty-Telnet] TCP server 설정
+- [Netty] TCP server 설정
 
 <br/>
 
@@ -9,9 +9,7 @@
 - [Dependency (Gradle)](#dependency-gradle)
 - [구현](#구현)
   - [Application](#application)
-  - [Initializer](#initializer)
   - [Handler](#handler)
-  - [Util](#util)
 
 <br/>
 
@@ -23,7 +21,7 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-webflux'
 
 	// Netty
-	implementation 'io.netty:netty-all:5.0.0.Alpha2'
+	implementation 'io.netty:netty-all'
 }
 ```
 
@@ -42,88 +40,64 @@ dependencies {
 
 - ChannelInitializer 생성
   - serverBootstrap에 자식 핸들러로 `childHandler()` 메소드 호출
+  - ChannelInitializer의 `initChannel` 메소드를 overriding
+  - SocketChannel을 통해 `pipeline()`을 생성하고,  
+    이 파이프 라인을 통해 들어오는 데이터를 처리하기 위한 핸들러를 붙혀줌
 
 ```java
-import com.humuson.tcpserver.util.ServerUtil;
+import com.humuson.tcpserver.handler.TcpServerHandler;
 import io.netty.bootstrap.ServerBootstrap;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelInitializer;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
-import io.netty.channel.socket.nio.NioServerSocketChannel;
-import io.netty.handler.logging.LogLevel;
-import io.netty.handler.logging.LoggingHandler;
-import io.netty.handler.ssl.SslContext;
-
-public class TcpServerApplication {
-
-    static final boolean SSL = System.getProperty("ssl") != null;
-    static final int PORT = Integer.parseInt(System.getProperty("port", SSL? "8992" : "8023"));
-
-    public static void main(String[] args) throws Exception {
-        final SslContext sslCtx = ServerUtil.buildSslContext();
-
-        EventLoopGroup bossGroup = new NioEventLoopGroup(1);
-        EventLoopGroup workerGroup = new NioEventLoopGroup();
-        
-        try {
-            ServerBootstrap b = new ServerBootstrap();
-            b.group(bossGroup, workerGroup)
-                    .channel(NioServerSocketChannel.class)
-                    .handler(new LoggingHandler(LogLevel.INFO))
-                    .childHandler(new TcpServerInitializer(sslCtx));
-
-            b.bind(PORT).sync().channel().closeFuture().sync();
-            
-        } finally {
-            bossGroup.shutdownGracefully();
-            workerGroup.shutdownGracefully();
-        }
-    }
-}
-```
-
-<br/>
-
-### Initializer
-
-- SocketChannel을 통해 `pipeline()`을 생성하고,  
-  이 파이프 라인을 통해 들어오는 데이터를 처리하기 위한 핸들러를 붙혀줌
-
-```java
-import io.netty.channel.ChannelInitializer;
-import io.netty.channel.ChannelPipeline;
 import io.netty.channel.socket.SocketChannel;
+import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.codec.DelimiterBasedFrameDecoder;
 import io.netty.handler.codec.Delimiters;
 import io.netty.handler.codec.string.StringDecoder;
 import io.netty.handler.codec.string.StringEncoder;
-import io.netty.handler.ssl.SslContext;
+import io.netty.handler.logging.LogLevel;
+import io.netty.handler.logging.LoggingHandler;
+import lombok.extern.slf4j.Slf4j;
 
-public class TcpServerInitializer extends ChannelInitializer<SocketChannel> {
+import java.net.InetSocketAddress;
 
-    private static final StringDecoder DECODER = new StringDecoder();
-    private static final StringEncoder ENCODER = new StringEncoder();
+@Slf4j
+public class TcpServerApplication {
 
-    private static final TcpServerHandler SERVER_HANDLER = new TcpServerHandler();
+  public static final String HOST = "netty-server";
+  public static final int PORT = 9000;
 
-    private final SslContext sslCtx;
+  public static void main(String[] args) throws Exception {
+    EventLoopGroup bossGroup = new NioEventLoopGroup(1);
+    EventLoopGroup workerGroup = new NioEventLoopGroup();
 
-    public TcpServerInitializer(SslContext sslCtx) {
-        this.sslCtx = sslCtx;
+    try {
+      ServerBootstrap b = new ServerBootstrap();
+      b.group(bossGroup, workerGroup)
+              .channel(NioServerSocketChannel.class)
+              .handler(new LoggingHandler(LogLevel.INFO))
+              .childHandler(new ChannelInitializer<SocketChannel>() {
+                @Override
+                protected void initChannel(SocketChannel ch) {
+                  ch.pipeline()
+                          .addLast(new DelimiterBasedFrameDecoder(8192, Delimiters.lineDelimiter()))
+                          .addLast(new StringDecoder())
+                          .addLast(new StringEncoder())
+                          .addLast(new TcpServerHandler());
+                }
+              });
+
+      ChannelFuture cf = b.bind(new InetSocketAddress(HOST, PORT)).sync();
+      log.info("## Server started - host: {}, port: {}", HOST, PORT);
+      cf.channel().closeFuture().sync();
+
+    } finally {
+      bossGroup.shutdownGracefully();
+      workerGroup.shutdownGracefully();
     }
-
-    @Override
-    public void initChannel(SocketChannel ch) throws Exception {
-        ChannelPipeline pipeline = ch.pipeline();
-
-        if (sslCtx != null) {
-            pipeline.addLast(sslCtx.newHandler(ch.alloc()));
-        }
-
-        pipeline.addLast(new DelimiterBasedFrameDecoder(8192, Delimiters.lineDelimiter()));
-        pipeline.addLast(DECODER);
-        pipeline.addLast(ENCODER);
-        pipeline.addLast(SERVER_HANDLER);
-    }
+  }
 }
 ```
 
@@ -133,7 +107,7 @@ public class TcpServerInitializer extends ChannelInitializer<SocketChannel> {
 
 - 클라이언트 연결에서 들어오는 데이터를 처리하는 클래스
 
-- 소켓 채널을 통해 데이터가 수신될 때마다 `messageReceived()` 메소드 호출
+- 소켓 채널을 통해 데이터가 수신될 때마다 `channelRead()` 메소드 호출
   - ChannelHandlerContext를 통해 데이터를 버퍼에 써서 반환
 
 - 소켓 채널로부터 읽을 수 있는 데이터가 더 이상 존재하지 않을 때 `channelReadComplete()` 호출
@@ -147,84 +121,57 @@ import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandler.Sharable;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.SimpleChannelInboundHandler;
+import io.netty.channel.ChannelInboundHandlerAdapter;
+import lombok.extern.slf4j.Slf4j;
 
 import java.net.InetAddress;
 import java.util.Date;
 
+@Slf4j
 @Sharable
-public class TcpServerHandler extends SimpleChannelInboundHandler<String> {
+public class TcpServerHandler extends ChannelInboundHandlerAdapter {
 
-    @Override
-    public void channelActive(ChannelHandlerContext ctx) throws Exception {
-        ctx.write("Welcome to " + InetAddress.getLocalHost().getHostName() + "!\r\n");
-        ctx.write("It is " + new Date() + " now.\r\n");
-        ctx.flush();
+  @Override
+  public void channelActive(ChannelHandlerContext ctx) throws Exception {
+    ctx.write("## Welcome to " + InetAddress.getLocalHost().getHostName() + "!\r\n");
+    ctx.write("## It is " + new Date() + " now.\r\n");
+    ctx.flush();
+  }
+
+  @Override
+  public void channelRead(ChannelHandlerContext ctx, Object msg) {
+    String message = msg.toString();
+    String response;
+    boolean close = false;
+
+    if (message.isEmpty()) {
+      response = "## 메세지가 입력되지 않았습니다.\r\n";
+
+    } else if ("bye".equalsIgnoreCase(message)) {
+      response = "## 종료합니다.\r\n";
+      close = true;
+
+    } else {
+      response = "## 서버에서 확인했습니다.\r\n";
+      log.info(message);
     }
 
-    @Override
-    protected void messageReceived(ChannelHandlerContext ctx, String msg) {
-        String response;
-        boolean close = false;
-        if (msg.isEmpty()) {
-            response = "Please type something.\r\n";
-        } else if ("bye".equalsIgnoreCase(msg)) {
-            response = "Have a good day!\r\n";
-            close = true;
-        } else {
-            response = "OK" + "\r\n";
-            System.out.println(msg);
-        }
+    ChannelFuture future = ctx.write(response);
 
-        ChannelFuture future = ctx.write(response);
-
-        if (close) {
-            future.addListener(ChannelFutureListener.CLOSE);
-        }
+    if (close) {
+      future.addListener(ChannelFutureListener.CLOSE);
     }
+  }
 
-    @Override
-    public void channelReadComplete(ChannelHandlerContext ctx) {
-        ctx.flush();
-    }
+  @Override
+  public void channelReadComplete(ChannelHandlerContext ctx) {
+    ctx.flush();
+  }
 
-    @Override
-    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-        cause.printStackTrace();
-        ctx.close();
-    }
-}
-```
-
-<br/>
-
-### Util
-
-- SSL property를 설정해주는 util class
-
-```java
-import io.netty.handler.ssl.SslContext;
-import io.netty.handler.ssl.SslContextBuilder;
-import io.netty.handler.ssl.util.SelfSignedCertificate;
-
-import javax.net.ssl.SSLException;
-import java.security.cert.CertificateException;
-
-public class ServerUtil {
-
-    private static final boolean SSL = System.getProperty("ssl") != null;
-
-    private ServerUtil() {
-    }
-
-    public static SslContext buildSslContext() throws CertificateException, SSLException {
-        if (!SSL) {
-            return null;
-        }
-        SelfSignedCertificate ssc = new SelfSignedCertificate();
-        return SslContextBuilder
-                .forServer(ssc.certificate(), ssc.privateKey())
-                .build();
-    }
+  @Override
+  public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
+    cause.printStackTrace();
+    ctx.close();
+  }
 }
 ```

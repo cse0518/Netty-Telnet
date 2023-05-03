@@ -1,7 +1,7 @@
-## Netty-Telnet Client
+## Netty Client
 
-- [Netty-Telnet] TCP client 설정 후 Kafka Consume 연결
-- Kafka 해당 토픽에서 consume 한 후, 소켓 통신을 통해 telnet server로 데이터 전송
+- [Netty] TCP client 설정 후 Kafka Consume 연결
+- Kafka 해당 토픽에서 consume 한 후, 소켓 통신을 통해 netty server로 데이터 전송
 
 <br/>
 
@@ -10,10 +10,9 @@
 - [Dependency (Gradle)](#dependency-gradle)
 - [Property](#property)
 - [구현](#구현)
-  - [Application](#application)
-  - [Initializer](#initializer)
+  - [Netty Configuration](#netty-configuration)
   - [Kafka Configuration](#kafka-configuration)
-  - [Subscriber](#subscriber)
+  - [Consumer](#consumer)
   - [DTO](#dto)
 
 <br/>
@@ -42,6 +41,7 @@ dependencies {
   implementation 'org.projectlombok:lombok:1.18.26'
   compileOnly 'org.projectlombok:lombok'
   annotationProcessor 'org.projectlombok:lombok'
+  testAnnotationProcessor 'org.projectlombok:lombok'
 }
 ```
 
@@ -53,90 +53,79 @@ dependencies {
 - 변수로 불러오기 위해 설정
 
 ```yaml
-kafka:
-  bootstrapAddress: localhost:9092
-topic:
-  name: test-topic
+spring:
+  kafka:
+    bootstrapAddress: localhost:9092
+    consumer:
+      group-id: testGroup
+    topic:
+      name: testTopic
+
+netty:
+  host: netty-server
+  port: 9000
 ```
 
 <br/>
 
 ## 구현
 
-### Application
+### Netty Configuration
+
+- NioEventLoopGroup과 Bootstrap을 Singleton Bean으로 관리
+
+- `Initializer`
+  - ChannelInitializer의 `initChannel` 메소드를 overriding
+  - SocketChannel을 통해 `pipeline()`을 생성하고,  
+    이 파이프 라인을 통해 들어오는 데이터를 처리하기 위한 핸들러를 붙혀줌
 
 ```java
-import com.humuson.tcpclient.util.ServerUtil;
+import com.humuson.tcpclient.handler.TcpClientHandler;
 import io.netty.bootstrap.Bootstrap;
-import io.netty.channel.Channel;
+import io.netty.channel.ChannelInitializer;
+import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
-import io.netty.handler.ssl.SslContext;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
+import io.netty.handler.codec.string.StringEncoder;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 
-import javax.net.ssl.SSLException;
-import java.security.cert.CertificateException;
-import java.util.Queue;
-import java.util.concurrent.ConcurrentLinkedQueue;
+import java.nio.charset.StandardCharsets;
 
-@SpringBootApplication
-public class TcpClientApplication {
+@Configuration
+public class NettyClientConfig {
 
-    public static final boolean SSL = System.getProperty("ssl") != null;
-    public static final String HOST = System.getProperty("host", "127.0.0.1");
-    public static final int PORT = Integer.parseInt(System.getProperty("port", SSL ? "8992" : "8023"));
+  @Bean
+  public EventLoopGroup group() {
+    return new NioEventLoopGroup();
+  }
 
-    // Socket 통신으로 보낼 데이터 적재
-    public static final Queue<Object> stage = new ConcurrentLinkedQueue<>();
-
-    public static void main(String[] args) throws CertificateException, SSLException {
-        SslContext sslContext = ServerUtil.buildSslContext();
-
-        EventLoopGroup group = new NioEventLoopGroup();
-        try {
-            Bootstrap b = new Bootstrap();
-            b.group(group)
-                    .channel(NioSocketChannel.class)
-                    .handler(new TcpClientInitializer(sslContext));
-
-            Channel ch = b.connect(HOST, PORT).sync().channel();
-            // 무한 루프
-            while (true) {
-                // 보낼 데이터가 없으면 5초 대기
-                if (stage.isEmpty()) {
-                    Thread.sleep(5000);
-                    continue;
-                }
-
-                // 보낼 데이터가 있으면 꺼내서 전송
-                String data = stage.poll().toString();
-                ch.writeAndFlush(data + "\r\n");
-            }
-
-        } catch (Exception e) {
-            e.printStackTrace();
-
-        } finally {
-            group.shutdownGracefully();
-        }
-    }
+  @Bean
+  public Bootstrap bootstrap(EventLoopGroup group) {
+    Bootstrap b = new Bootstrap();
+    return b.group(group)
+            .channel(NioSocketChannel.class)
+            .option(ChannelOption.SO_KEEPALIVE, true)
+            .handler(new ChannelInitializer<SocketChannel>() {
+              @Override
+              protected void initChannel(SocketChannel ch) {
+                ch.pipeline().addLast(
+                        new StringEncoder(StandardCharsets.UTF_8),
+                        new TcpClientHandler()
+                );
+              }
+            });
+  }
 }
 ```
-
-<br/>
-
-### Initializer
-
-- SocketChannel을 통해 pipeline()을 생성하고,  
-  이 파이프 라인을 통해 들어오는 데이터를 처리하기 위한 핸들러를 붙혀줌
 
 <br/>
 
 ### Kafka Configuration
 
 ```java
-import com.humuson.tcpclient.dto.TestDto;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.beans.factory.annotation.Value;
@@ -146,7 +135,6 @@ import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
-import org.springframework.kafka.support.serializer.JsonDeserializer;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -155,60 +143,105 @@ import java.util.Map;
 @Configuration
 public class KafkaConsumerConfig {
 
-    @Value(value = "${kafka.bootstrapAddress}")
-    private String bootstrapAddress;
+  @Value(value = "${spring.kafka.bootstrapAddress}")
+  private String bootstrapAddress;
 
-    public ConsumerFactory<String, TestDto> testConsumerFactory() {
-        JsonDeserializer<TestDto> deserializer = new JsonDeserializer<>(TestDto.class);
-        deserializer.setRemoveTypeHeaders(false);
-        deserializer.addTrustedPackages("*");
-        deserializer.setUseTypeMapperForKey(true);
+  @Value(value = "${spring.kafka.consumer.group-id}")
+  private String groupId;
 
-        Map<String, Object> props = new HashMap<>();
-        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapAddress);
-        props.put(ConsumerConfig.GROUP_ID_CONFIG, "test");
-        props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
-        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, deserializer);
+  public ConsumerFactory<String, String> consumerFactory() {
+    Map<String, Object> props = new HashMap<>();
+    props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapAddress);
+    props.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
+    props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+    props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
 
-        return new DefaultKafkaConsumerFactory<>(props, new StringDeserializer(), deserializer);
-    }
+    return new DefaultKafkaConsumerFactory<>(props);
+  }
 
-    @Bean
-    public ConcurrentKafkaListenerContainerFactory<String, TestDto> testKafkaListenerContainerFactory() {
-        ConcurrentKafkaListenerContainerFactory<String, TestDto> factory = new ConcurrentKafkaListenerContainerFactory<>();
-
-        factory.setConsumerFactory(testConsumerFactory());
-        return factory;
-    }
+  @Bean
+  public ConcurrentKafkaListenerContainerFactory<String, String> myKafkaListenerContainerFactory() {
+    ConcurrentKafkaListenerContainerFactory<String, String> factory = new ConcurrentKafkaListenerContainerFactory<>();
+    factory.setConsumerFactory(consumerFactory());
+    return factory;
+  }
 }
 ```
 
 <br/>
 
-### Subscriber
+### Consumer
 
-- 해당 토픽의 데이터를 consume 한 후에, Queue(소켓 통신으로 보낼 데이터 저장소)에 적재
+- 생성자로 `Bootstrap`, `EventLoopGroup` Bean을 주입받음.  
+  인스턴스 생성 이후에 netty-server와 포트 연결(`@PostConstruct`)
+
+- 해당 토픽의 데이터를 consume 한 후, netty-server로 데이터 전송(소켓 통신)
 
 ```java
-package com.humuson.tcpclient.consumer;
-
-import com.humuson.tcpclient.NettyTcpClient;
-import com.humuson.tcpclient.dto.TestDto;
+import io.netty.bootstrap.Bootstrap;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.EventLoopGroup;
+import io.netty.util.CharsetUtil;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
+import javax.annotation.PostConstruct;
+import javax.annotation.PreDestroy;
+
 @Slf4j
 @Component
-public class TestSubscriber {
+public class KafkaConsumer {
 
-    @KafkaListener(topics = "${topic.name}", containerFactory = "testKafkaListenerContainerFactory")
-    public void testListener(TestDto testDTO) {
-        log.info("consume data : " + testDTO.toString());
-        TcpClientApplication.stage.add(testDTO);
+  private final String HOST;
+  private final int PORT;
+  private final Bootstrap bootstrap;
+  private final EventLoopGroup group;
+  private Channel channel;
+
+  public KafkaConsumer(@Value(value = "${netty.host}") String HOST,
+                       @Value(value = "${netty.port}") int PORT,
+                       Bootstrap bootstrap,
+                       EventLoopGroup group) {
+    this.HOST = HOST;
+    this.PORT = PORT;
+    this.bootstrap = bootstrap;
+    this.group = group;
+  }
+
+  @PostConstruct
+  private void connect() throws InterruptedException {
+    ChannelFuture channelFuture = bootstrap.connect(HOST, PORT).sync();
+    if (channelFuture.isSuccess()) {
+      System.out.println("## Successfully connected to Netty server");
+      channel = channelFuture.channel();
+    } else {
+      System.out.println("## Failed to connect to Netty server");
+      throw new InterruptedException();
     }
-}
+  }
 
+  @KafkaListener(topics = "${spring.kafka.topic.name}", containerFactory = "myKafkaListenerContainerFactory")
+  public void consume(String message) throws InterruptedException {
+    if (channel == null) {
+      connect();
+    }
+
+    log.info("### consume data : {}", message);
+    ByteBuf byteBuf = Unpooled.copiedBuffer(message, CharsetUtil.UTF_8);
+    channel.writeAndFlush(byteBuf);
+  }
+
+  @PreDestroy
+  public void shutdown() throws InterruptedException {
+    channel.close().sync();
+    group.shutdownGracefully();
+  }
+}
 ```
 
 <br/>
