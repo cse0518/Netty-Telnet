@@ -17,7 +17,7 @@ public class TcpClientHandler extends ChannelInboundHandlerAdapter {
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) {
         String message = msg.toString();
-        log.info("### 서버에서 메세지를 수신했습니다 : {}", message);
+        log.info("### 메세지를 수신했습니다 : {}", message);
         ctx.close();
     }
 

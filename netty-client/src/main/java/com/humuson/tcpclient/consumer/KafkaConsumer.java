@@ -17,7 +17,7 @@ import javax.annotation.PreDestroy;
 
 @Slf4j
 @Component
-public class Consumer {
+public class KafkaConsumer {
 
     private final String HOST;
     private final int PORT;
@@ -25,10 +25,10 @@ public class Consumer {
     private final EventLoopGroup group;
     private Channel channel;
 
-    public Consumer(@Value(value = "${netty.host}") String HOST,
-                    @Value(value = "${netty.port}") int PORT,
-                    Bootstrap bootstrap,
-                    EventLoopGroup group) {
+    public KafkaConsumer(@Value(value = "${netty.host}") String HOST,
+                         @Value(value = "${netty.port}") int PORT,
+                         Bootstrap bootstrap,
+                         EventLoopGroup group) {
         this.HOST = HOST;
         this.PORT = PORT;
         this.bootstrap = bootstrap;

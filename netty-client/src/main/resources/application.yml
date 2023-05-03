@@ -6,12 +6,12 @@ spring:
     name: netty-client
 
   kafka:
-    bootstrapAddress: kafka:9092 #kafka:9092
+    bootstrapAddress: kafka:9092
     consumer:
       group-id: testGroup
     topic:
       name: testTopic
 
 netty:
-  host: localhost # netty-server
+  host: netty-server
   port: 9000
