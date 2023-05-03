@@ -36,15 +36,11 @@ public class TcpServerApplication {
                     .childHandler(new ChannelInitializer<SocketChannel>() {
                         @Override
                         protected void initChannel(SocketChannel ch) {
-                            ch.pipeline()
-                                    .addLast(new DelimiterBasedFrameDecoder(8192, Delimiters.lineDelimiter()))
-                                    .addLast(new StringDecoder())
-                                    .addLast(new StringEncoder())
-                                    .addLast(new TcpServerHandler());
+                            ch.pipeline().addLast(new TcpServerHandler());
                         }
                     });
 
-            ChannelFuture cf = b.bind(new InetSocketAddress(HOST, PORT)).sync();
+            ChannelFuture cf = b.bind(HOST, PORT).sync();
             log.info("## Server started - host: {}, port: {}", HOST, PORT);
             cf.channel().closeFuture().sync();
 

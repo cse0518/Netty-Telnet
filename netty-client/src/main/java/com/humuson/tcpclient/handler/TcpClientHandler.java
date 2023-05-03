@@ -21,7 +21,6 @@ public class TcpClientHandler extends ChannelInboundHandlerAdapter {
     public void channelRead(ChannelHandlerContext ctx, Object msg) {
         String message = ((ByteBuf) msg).toString(Charset.defaultCharset());
         log.info("### 메세지를 수신했습니다 : {}", message);
-        ctx.channel().writeAndFlush("### 서버 확인\r\n");
     }
 
     @Override
