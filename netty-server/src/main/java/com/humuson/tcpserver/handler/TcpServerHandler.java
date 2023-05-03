@@ -1,5 +1,6 @@
 package com.humuson.tcpserver.handler;
 
+import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandler.Sharable;
@@ -8,6 +9,7 @@ import io.netty.channel.ChannelInboundHandlerAdapter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.net.InetAddress;
+import java.nio.charset.Charset;
 import java.util.Date;
 
 @Slf4j
@@ -23,7 +25,7 @@ public class TcpServerHandler extends ChannelInboundHandlerAdapter {
 
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) {
-        String message = msg.toString();
+        String message = ((ByteBuf) msg).toString(Charset.defaultCharset());
         String response;
         boolean close = false;
 
@@ -36,7 +38,7 @@ public class TcpServerHandler extends ChannelInboundHandlerAdapter {
 
         } else {
             response = "## 서버에서 확인했습니다.\r\n";
-            log.info(message);
+            log.info("## read message 확인 : {}", message);
         }
 
         ChannelFuture future = ctx.write(response);
