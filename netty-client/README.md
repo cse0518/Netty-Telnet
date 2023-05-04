@@ -13,7 +13,6 @@
   - [Netty Configuration](#netty-configuration)
   - [Kafka Configuration](#kafka-configuration)
   - [Consumer](#consumer)
-  - [DTO](#dto)
 
 <br/>
 
@@ -80,7 +79,7 @@ netty:
     이 파이프 라인을 통해 들어오는 데이터를 처리하기 위한 핸들러를 붙혀줌
 
 ```java
-import com.humuson.tcpclient.handler.TcpClientHandler;
+import com.humuson.tcpclient.handler.NettyClientHandler;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
@@ -113,7 +112,7 @@ public class NettyClientConfig {
               protected void initChannel(SocketChannel ch) {
                 ch.pipeline().addLast(
                         new StringEncoder(StandardCharsets.UTF_8),
-                        new TcpClientHandler()
+                        new NettyClientHandler()
                 );
               }
             });
@@ -227,11 +226,13 @@ public class KafkaConsumer {
 
   @KafkaListener(topics = "${spring.kafka.topic.name}", containerFactory = "myKafkaListenerContainerFactory")
   public void consume(String message) throws InterruptedException {
+    message = message.substring(1, message.length() - 1)
+            .replace("\\", "");
+    log.info("### consume data : {}", message);
+
     if (channel == null) {
       connect();
     }
-
-    log.info("### consume data : {}", message);
     ByteBuf byteBuf = Unpooled.copiedBuffer(message, CharsetUtil.UTF_8);
     channel.writeAndFlush(byteBuf);
   }
@@ -241,34 +242,5 @@ public class KafkaConsumer {
     channel.close().sync();
     group.shutdownGracefully();
   }
-}
-```
-
-<br/>
-
-### DTO
-
-```java
-import lombok.*;
-
-@Getter
-@Setter
-@AllArgsConstructor
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class TestDto {
-
-    private String productName;
-    private int cost;
-    private int orderId;
-    
-    @Override
-    public String toString() {
-        final StringBuilder sb = new StringBuilder("TestDto { ");
-        sb.append("productName='").append(productName).append('\'');
-        sb.append(", cost= ").append(cost);
-        sb.append(", orderId= ").append(orderId);
-        sb.append(" }");
-        return sb.toString();
-    }
 }
 ```
