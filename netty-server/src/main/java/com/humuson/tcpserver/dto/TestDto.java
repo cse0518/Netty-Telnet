@@ -1,4 +1,4 @@
-package com.humuson.tcpclient.dto;
+package com.humuson.tcpserver.dto;
 
 import lombok.*;
 

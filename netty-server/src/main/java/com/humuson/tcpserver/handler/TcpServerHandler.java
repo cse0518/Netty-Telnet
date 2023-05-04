@@ -1,5 +1,8 @@
 package com.humuson.tcpserver.handler;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.humuson.tcpserver.dto.TestDto;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
@@ -15,6 +18,8 @@ import java.util.Date;
 @Slf4j
 @Sharable
 public class TcpServerHandler extends ChannelInboundHandlerAdapter {
+
+    public ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
     public void channelActive(ChannelHandlerContext ctx) throws Exception {
@@ -38,7 +43,16 @@ public class TcpServerHandler extends ChannelInboundHandlerAdapter {
 
         } else {
             response = "## 서버에서 확인했습니다.\r\n";
-            log.info("## read message 확인 : {}", message);
+            log.info("## 수신 Data : {}", message);
+
+            try {
+                TestDto testDto = objectMapper.readValue(message, TestDto.class);
+                log.info("## dto로 변환 성공\ndto.orderId : {}", testDto.getOrderId());
+
+            } catch (JsonProcessingException e) {
+                log.info("## dto로 변환 실패");
+                throw new RuntimeException(e);
+            }
         }
 
         ChannelFuture future = ctx.write(response);
