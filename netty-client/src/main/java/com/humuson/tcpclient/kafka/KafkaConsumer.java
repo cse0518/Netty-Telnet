@@ -49,11 +49,13 @@ public class KafkaConsumer {
 
     @KafkaListener(topics = "${spring.kafka.topic.name}", containerFactory = "myKafkaListenerContainerFactory")
     public void consume(String message) throws InterruptedException {
+        message = message.substring(1, message.length() - 1)
+                .replace("\\", "");
+        log.info("### consume data : {}", message);
+
         if (channel == null) {
             connect();
         }
-
-        log.info("### consume data : {}", message);
         ByteBuf byteBuf = Unpooled.copiedBuffer(message, CharsetUtil.UTF_8);
         channel.writeAndFlush(byteBuf);
     }
