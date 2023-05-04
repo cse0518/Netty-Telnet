@@ -1,6 +1,6 @@
 package com.humuson.tcpserver;
 
-import com.humuson.tcpserver.handler.TcpServerHandler;
+import com.humuson.tcpserver.handler.NettyServerHandler;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelInitializer;
@@ -8,18 +8,12 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
-import io.netty.handler.codec.DelimiterBasedFrameDecoder;
-import io.netty.handler.codec.Delimiters;
-import io.netty.handler.codec.string.StringDecoder;
-import io.netty.handler.codec.string.StringEncoder;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
 import lombok.extern.slf4j.Slf4j;
 
-import java.net.InetSocketAddress;
-
 @Slf4j
-public class TcpServerApplication {
+public class NettyServerApplication {
 
     public static final String HOST = "netty-server";
     public static final int PORT = 9000;
@@ -36,7 +30,7 @@ public class TcpServerApplication {
                     .childHandler(new ChannelInitializer<SocketChannel>() {
                         @Override
                         protected void initChannel(SocketChannel ch) {
-                            ch.pipeline().addLast(new TcpServerHandler());
+                            ch.pipeline().addLast(new NettyServerHandler());
                         }
                     });
 

@@ -17,7 +17,7 @@ import java.util.Date;
 
 @Slf4j
 @Sharable
-public class TcpServerHandler extends ChannelInboundHandlerAdapter {
+public class NettyServerHandler extends ChannelInboundHandlerAdapter {
 
     public ObjectMapper objectMapper = new ObjectMapper();
 

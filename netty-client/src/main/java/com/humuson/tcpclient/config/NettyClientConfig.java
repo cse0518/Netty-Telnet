@@ -1,6 +1,6 @@
 package com.humuson.tcpclient.config;
 
-import com.humuson.tcpclient.handler.TcpClientHandler;
+import com.humuson.tcpclient.handler.NettyClientHandler;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
@@ -33,7 +33,7 @@ public class NettyClientConfig {
                     protected void initChannel(SocketChannel ch) {
                         ch.pipeline().addLast(
                                 new StringEncoder(StandardCharsets.UTF_8),
-                                new TcpClientHandler()
+                                new NettyClientHandler()
                         );
                     }
                 });

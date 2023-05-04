@@ -1,4 +1,4 @@
-package com.humuson.tcpclient.consumer;
+package com.humuson.tcpclient.kafka;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.ByteBuf;

@@ -10,7 +10,7 @@ import java.nio.charset.Charset;
 
 @Slf4j
 @Sharable
-public class TcpClientHandler extends ChannelInboundHandlerAdapter {
+public class NettyClientHandler extends ChannelInboundHandlerAdapter {
 
     @Override
     public void channelRegistered(ChannelHandlerContext ctx) {
