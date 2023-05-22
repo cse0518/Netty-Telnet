@@ -1,0 +1,3 @@
+netty:
+  host: localhost
+  port: 8099

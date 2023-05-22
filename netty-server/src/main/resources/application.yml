@@ -1,2 +1,6 @@
 server:
   port: 8090
+
+netty:
+  host: netty-server
+  port: 8099

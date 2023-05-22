@@ -14,4 +14,4 @@ spring:
 
 netty:
   host: netty-server
-  port: 9000
+  port: 8099

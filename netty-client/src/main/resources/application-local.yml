@@ -1,0 +1,7 @@
+spring:
+  kafka:
+    bootstrapAddress: localhost:9092
+
+netty:
+  host: localhost
+  port: 8099
