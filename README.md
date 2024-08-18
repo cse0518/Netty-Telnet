@@ -4,7 +4,7 @@
 
 <br/>
 
-![image](https://github.com/cse0518/MSA-practice/assets/60170616/d2cfe502-3ce4-4625-ad5c-8a8489bbcae7)
+![image](https://github.com/user-attachments/assets/3afa2d02-5214-4d67-9101-bde0a8be13f6)
 
 - `Netty Client`
     - Kafka에 적재된 데이터를 Consume 합니다.
